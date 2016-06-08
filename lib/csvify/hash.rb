@@ -1,10 +1,11 @@
 module Csvify
   class Hash
     def self.from_collection(collection, options)
+      #options {exclude: ['']}
       init_content
       @collection = collection
-      build_parent_resource_headers
       build_csv
+      @csv
     end
 
     private
@@ -13,6 +14,7 @@ module Csvify
         @parent_resource_name         = ""
         @parent_resource_headers      = ""
         @child_resource_headers       = ""
+        @headers                      = ""
         @body                         = ""
         @csv                          = ""
         @parent_resource_keys         = []
@@ -22,14 +24,14 @@ module Csvify
         @exclude_child_keys           = {}
       end
 
-      def self.is_atomic object
+      def self.is_atomic? object
         atomic_types = ["String", "Numeric", "TrueClass", "FalseClass", "Date", "DateTime", "ActiveSupport::TimeWithZone", "Time", "Array"]
         atomic_types.include? object.class.to_s
       end
 
       def self.classify_parent_resource_keys(row)
         row.keys.each do |key|
-          if is_atomic(row)
+          if is_atomic?(row[key])
             @parent_resource_keys << key if !@parent_resource_keys.include? key
           else
             if !@child_resources.include? key
@@ -47,6 +49,19 @@ module Csvify
           @body << get_child_resources(row)
           @body << "\n"
         end
+        build_headers
+        @csv = @headers + "\n" + @body
+      end
+
+      def self.build_headers
+        @parent_resource_keys.each do |key|
+          @headers << "\"#{key.to_s}\","
+        end
+        @child_resources.each do |child|
+          @child_resource_keys[child].each do |key|
+            @headers << "\"#{child.to_s} #{key.to_s}\","
+          end
+        end
       end
 
       def self.get_parent_row_values(row)
@@ -62,7 +77,7 @@ module Csvify
       def self.get_child_resources(row)
         child_rows = ""
         @child_resources.each do |child|
-          if !row[child].blank?
+          if row[child].blank?
             child_rows << blank_row(child)
           else
             child_rows << get_child_resource_row_values(row, child)
@@ -97,6 +112,7 @@ module Csvify
       end
 
       def self.format_value(value)
+        return_value = ""
         case value.class.to_s
         when "TrueClass", "FalseClass"
           return_value = value ? "Yes" : "No"
@@ -107,14 +123,14 @@ module Csvify
         when "DateTime", "ActiveSupport::TimeWithZone"
           return_value = value.to_time.strftime("%m/%d/%Y %I:%M %p")
         when "Array"
-          return_value = ""
-          value.each_with_index |row, index|
+          value.each_with_index do |row, index|
             return_value <<  index == value.size - 1 ? "#{row.to_s}" : "#{row.to_s}"
           end
         else
           return_value = value.to_s
         end
-        value = value.gsub! "\"", "\"\""
+        return_value.gsub! "\"", "\"\""
+        return_value
       end
   end
 end
