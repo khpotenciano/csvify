@@ -4,8 +4,6 @@ ActiveRecord::Schema.define do
     t.string      "name"
     t.string      "entertainment_agency"
     t.date        "debut_date"
-    t.datetime    "created_at", null: false
-    t.datetime    "updated_at", null: false
   end
   create_table :members, :force => :cascade do |t|
     t.integer     "group_id"
@@ -15,7 +13,6 @@ ActiveRecord::Schema.define do
     t.string      "nationality"
     t.date        "birthday"
     t.string      "height"
-    t.string      "weight"
   end
 
   create_table :albums, :force => :cascade do |t|
