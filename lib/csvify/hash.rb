@@ -1,9 +1,10 @@
 module Csvify
   class Hash
-    def self.from_collection(collection, options)
+    def self.from_collection(collection, options = {})
       #options {exclude: ['']}
       init_content
       @collection = collection
+      build_excludes options unless options.empty?
       build_csv
       @csv
     end
@@ -20,8 +21,19 @@ module Csvify
         @parent_resource_keys         = []
         @child_resources              = []
         @child_resource_keys          = {}
-        @exclude_parent_keys          = []
-        @exclude_child_keys           = {}
+        @excluded_parent_keys          = []
+        @excluded_child_keys           = {}
+      end
+
+      def self.build_excludes(options)
+        options[:exclude].each do |exclude|
+          if exclude.class.to_s.eql? "Symbol"
+            @excluded_parent_keys << exclude
+          else
+            resource = exclude.keys[0]
+            @excluded_child_keys[resource] = exclude[resource]
+          end
+        end
       end
 
       def self.is_atomic? object
@@ -32,9 +44,11 @@ module Csvify
       def self.classify_parent_resource_keys(row)
         row.keys.each do |key|
           if is_atomic?(row[key])
-            @parent_resource_keys << key if !@parent_resource_keys.include? key
+            if !@parent_resource_keys.include?(key) && !@excluded_parent_keys.include?(key)
+              @parent_resource_keys << key
+            end
           else
-            if !@child_resources.include? key
+            if !@child_resources.include?(key) && !@excluded_parent_keys.include?(key)
               @child_resources << key
               @child_resource_keys[key] = []
             end
@@ -96,7 +110,8 @@ module Csvify
 
       def self.get_child_resource_row_values(row, resource)
         row_values = ""
-        @child_resource_keys[resource] = @child_resource_keys[resource] | row[resource].keys
+        # binding.pry
+        @child_resource_keys[resource] = (@child_resource_keys[resource] | row[resource].keys) - (@excluded_child_keys[resource] || [])
         @child_resource_keys[resource].each do |key|
           value = row[resource][key]
           value = format_value(value)
